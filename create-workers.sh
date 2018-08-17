@@ -1,6 +1,4 @@
 #!/bin/bash -x
-# assumes us-east-1...
-NodeImageId="ami-0fef2bff3c2e2da93"
 # assumes fixed key pair name
 KeyName="eks-key-pair"
 
@@ -17,8 +15,19 @@ INSTANCE_TYPE=$3
 
 NODE_GROUP_NAME="node-group-$CLUSTER_NAME"
 STACK_NAME="${CLUSTER_NAME}-eks-workers"
-StackStatus="Unknown"
 
+if [ $REGION == "us-west-2" ]
+then
+    NODE_IMAGE_ID="ami-02415125ccd555295"
+elif [ $REGION == "us-east-1" ]
+then
+    NODE_IMAGE_ID="ami-048486555686d18a0"
+else
+    echo "Unsupported region $REGION"
+    exit 1
+fi
+
+StackStatus="Unknown"
 check_stack() {
     StackStatus=`aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query Stacks[*].StackStatus | jq -r .[]`
 }
@@ -46,14 +55,15 @@ aws cloudformation create-stack \
    --region $REGION \
    --capabilities CAPABILITY_IAM \
    --template-url https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-07-26/amazon-eks-nodegroup.yaml \
-   --parameters ParameterKey=NodeImageId,ParameterValue=$NodeImageId \
+   --parameters ParameterKey=NodeImageId,ParameterValue=$NODE_IMAGE_ID \
+                ParameterKey=NodeInstanceType,ParameterValue=$INSTANCE_TYPE \
+                ParameterKey=ClusterName,ParameterValue=$CLUSTER_NAME \
+                ParameterKey=NodeGroupName,ParameterValue=$NODE_GROUP_NAME \
                 ParameterKey=KeyName,ParameterValue=$KeyName \
                 ParameterKey=Subnets,ParameterValue=\"$Subnets\" \
                 ParameterKey=VpcId,ParameterValue=$VpcId \
-                ParameterKey=ClusterControlPlaneSecurityGroup,ParameterValue=$ClusterControlPlaneSecurityGroup \
-                ParameterKey=NodeInstanceType,ParameterValue=$INSTANCE_TYPE \
-                ParameterKey=ClusterName,ParameterValue=$CLUSTER_NAME \
-                ParameterKey=NodeGroupName,ParameterValue=$NODE_GROUP_NAME
+                ParameterKey=ClusterControlPlaneSecurityGroup,ParameterValue=$ClusterControlPlaneSecurityGroup
+                
                 
 while true
 do
